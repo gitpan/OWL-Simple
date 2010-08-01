@@ -1,0 +1,55 @@
+OWL-Simple
+
+This package contains a set of modules to parse
+an OWL ontology into a hash.
+
+SCRIPTS
+
+The similarity_match.pl compares a list of annotations to 
+another ontology and suggests the best match based on some 
+similarity metric (Levenshtein distance). It is also possible 
+to align one ontology to another. Accepts ontologies in both
+OBO and OWL formats as well as MeSH ASCII.
+
+INSTALLATION
+
+Use:
+
+	perl Build.PL
+	./Build
+	./Build test
+	./Build install
+	
+DEPENDENCIES
+
+IO::File
+IO::Handle
+GO::Parser
+Getopt::Long
+Moose
+Log::Log4perl
+XML::Parser
+Text::LevenshteinXS
+XML::Parser
+Benchmark
+
+DOCUMENTATION
+
+After installing, you can find documentation modules and scripts with the perldoc 
+command, e.g.:
+perldoc OWL::Simple::Parser
+perldoc similarity_match.pl
+
+KNOWN ISSUES
+
+Scripts were tested on UNIX. Correct loading of OWL ontologies 
+can only be guaranteed if they were produced in Protege3.
+
+COPYRIGHT AND LICENSE
+
+Copyright (c) 2010 European Bioinformatics Institute. All Rights Reserved.
+
+This module is free software; you can redistribute it and/or modify it 
+under GPLv3.
+
+This software is provided "as is" without warranty of any kind.

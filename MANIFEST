@@ -1,0 +1,17 @@
+Build.PL
+Changes
+ignore.txt
+lib/OWL/Simple/Class.pm
+lib/OWL/Simple/Parser.pm
+LICENSE
+MANIFEST
+README
+scripts/similarity_match.pl
+scripts/similarity_match.txt
+t/00-load.t
+t/boilerplate.t
+t/manifest.t
+t/pod-coverage.t
+t/pod.t
+Makefile.PL
+META.yml

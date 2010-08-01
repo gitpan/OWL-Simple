@@ -1,0 +1,258 @@
+#!/usr/bin/env perl
+
+=head1 NAME
+
+OWL::Simple::Parser
+
+=head1 SYNOPSIS
+
+	use OWL::Simple::Parser;
+		use Log::Log4perl qw(:easy);
+	Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
+	
+	# load Experimental Factor Ontology
+	my $parser = OWL::Simple::Parser->new(  owlfile => 'efo.owl',
+											synonym_tag => 'alternative_term' );
+	
+	# parse file
+	$parser->parse();
+	
+	INFO "Loaded "
+	  . $parser->class_count()
+	  . " classes and "
+	  . $parser->synonyms_count()
+	  . " synonyms";
+
+	# iterate through all the classes
+	# for each class print the id, label and synonyms
+	for my $OWLClass ( @{ $parser->termlist } ) {
+		INFO $OWLClass->id . ' ' . $OWLClass->label;
+		for my $syn (@{ $OWLClass->synonyms }){
+			INFO "\tsynonym - $syn";
+		}
+	}
+
+=head1 DESCRIPTION
+
+A simple OWL parser loading accessions, labels and synonyms and exposes them
+as a collection of OWL::Simple::Class objects.
+
+In the constructor specify the owlfile to be loaded and an optional synonym_tag
+used in the ontology (example FULL_SYN for NCI Thesaurus).
+
+=head2 METHODS
+
+=over
+
+=item class_count()
+
+Number of classes loaded by the parser.
+
+=item synonyms_count()
+
+Number of synonyms loaded by the parser.
+
+=item term_list
+
+Returns an array with all the OWL::Simple::Class objects
+
+=back
+
+=head1 AUTHOR
+
+Tomasz Adamusiak 2010
+
+=head1 COPYRIGHT AND LICENSE
+
+Copyright (c) 2010 European Bioinformatics Institute. All Rights Reserved.
+
+This module is free software; you can redistribute it and/or modify it 
+under GPLv3.
+
+This software is provided "as is" without warranty of any kind.
+
+=cut
+
+package OWL::Simple::Parser;
+
+use Moose 0.89;
+use OWL::Simple::Class 0.04;
+use Log::Log4perl qw(:easy);
+use XML::Parser 2.34;
+Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
+
+our $VERSION = 0.04;
+
+has 'owlfile' => ( is => 'rw', isa => 'Str', required => 1 );
+has 'termlist' => ( is => 'ro', isa => 'ArrayRef', default => sub { [] } );
+has 'class_count'    => ( is => 'rw', isa => 'Int', default => 0 );
+has 'synonyms_count' => ( is => 'rw', isa => 'Int', default => 0 );
+has 'synonym_tag'    => ( is => 'rw', isa => 'Str', default => 'efo:alternative_term' );
+
+my $parser;
+my $path = '';
+my $class;
+my %restriction;
+
+
+
+# Default constructor. Initializes the XML::Parser and sets appropriate handlers.
+
+sub BUILD() {
+	get_logger()->debug("OWLParser->BUILD");
+	my $self = shift;
+	$parser = new XML::Parser;
+	$parser->setHandlers(
+		Start => sub { $self->startElement(@_) },
+		End   => sub { $self->endElement(@_) },
+		Char  => sub { $self->characterData(@_) },
+	);
+}
+
+# Increments internal counter of classes and synonyms parser respectively.
+
+sub incr_classes() {
+	my $self = shift;
+	$self->class_count( $self->class_count + 1 );
+}
+
+sub incr_synonyms() {
+	my $self = shift;
+	$self->synonyms_count( $self->synonyms_count + 1 );
+}
+
+# Main function. Parser the owlfile using XML::Parser
+
+sub parse() {
+	my $self = shift;
+	$parser->parsefile( $self->owlfile );
+}
+
+
+# Handler executed by XML::Parser. Adds current element to $path.
+# $path is used characterData() to determine whtether node text should be
+# added to class.
+#
+# Initializes a new OWLClass object and stores it in $class. This is later
+# populated by other handlers.
+
+sub startElement() {
+	my ( $self, $parseinst, $element, %attr ) = @_;
+	get_logger()->debug("OWLParser->startElement  $self, $parseinst, $element");
+	$path = $path . '/' . $element;    # add element to path
+	if ( $path eq '/rdf:RDF/owl:Class' ) {
+		$self->incr_classes();
+		INFO( "Loaded " . $self->class_count . " classes from " . $self->owlfile )
+		  if $self->class_count % 1000 == 0;
+		$class = OWL::Simple::Class->new();
+		$class->id( $attr{'rdf:about'} ) if defined $attr{'rdf:about'};
+		$class->id( $attr{'rdf:ID'} )    if defined $attr{'rdf:ID'};
+		WARN 'DUPLICATE RDF:ID & RDF:ABOUT IN ' . $attr{'rdf:about'}
+		  if ( defined $attr{'rdf:id'} && defined $attr{'rdf:about'} );
+	}
+	# Two ways to match parents, either as rdf:resource attribute
+	# on rdfs:subClassOf or rdf:about on nested rdfs:subClassOf/owl:Class
+	elsif ( $path eq '/rdf:RDF/owl:Class/rdfs:subClassOf' ) {
+		push @{ $class->subClassOf }, $attr{'rdf:resource'} if defined $attr{'rdf:resource'};
+	}
+	elsif ( $path eq '/rdf:RDF/owl:Class/rdfs:subClassOf/owl:Class' ) {
+		push @{ $class->subClassOf }, $attr{'rdf:about'} if defined $attr{'rdf:about'};
+	}
+	# Here we try to match relations, e.g. part_of, derives_from, etc.
+	elsif ( $element eq 'owl:Restriction' ) {
+		$restriction{type}  = undef;
+		$restriction{class} = [];
+	}
+	elsif ( $element eq 'owl:someValuesFrom' ) {
+		push @{ $restriction{class} }, $attr{'rdf:resource'} if defined $attr{'rdf:resource'};
+		push @{ $restriction{class} }, $attr{'rdf:about'}    if defined $attr{'rdf:about'};
+	}
+	# Regex as properties can be transitive, etc.
+	elsif ( $element =~ /owl:\w+Property$/ ) {
+		$restriction{type} = $attr{'rdf:about'} if defined $attr{'rdf:about'};
+		$restriction{type} = $attr{'rdf:resource'} if defined $attr{'rdf:resource'};
+	}
+}
+
+# Handler executed by XML::Parser when node text is processed.
+#
+# For rdfs:label stores the value into $class->label.
+#
+# For synonym_tag (defaulting to efo:alternative_term), runs some post 
+# processing removing CDATA statements form NCIt synonyms and [accessedResource],
+# [accessDate] tags from EFO synonyms. The synonyms are stored in $class->synonyms.
+
+sub characterData {
+	my ( $self, $parseinst, $data ) = @_;
+	get_logger()->debug("OWLParser->characterData  $self, $parseinst, $data");
+	# Get rdfs:label
+	if ( $path eq '/rdf:RDF/owl:Class/rdfs:label' ) {
+		$class->label($data);
+	}
+	# Get definition_citation
+	elsif ( $path eq '/rdf:RDF/owl:Class/efo:definition_citation' ) {
+		push @{ $class->xrefs }, $data if defined $data;
+	}
+	# Get definition
+	elsif ( $path eq '/rdf:RDF/owl:Class/efo:definition' ) {
+		# Remove source tags from efo classes
+		# Special case for the OBO converter ONLY
+		# FIXME consider a more general approach
+		# FIXME provenance information is now stored in a separate annotation
+		if ( $data =~ m/^(.*)\[accessedResource: (.*)\]\[.*\]$/ ) {
+			$data = '"' . $1 . '"' . " [$2]";
+		}
+		else {
+			$data = '"' . $data . '" []';
+		}
+		push @{ $class->definitions }, $data if defined $data;
+	}
+	# Get synonyms, either matching to anything with synonym or 
+	# alternative_term inside or custom tag from parameters 
+	elsif ( $path =~ m{^/rdf:RDF/owl:Class/\w*:?\w*(synonym|alternative_term)\w*} ||
+		$path eq '/rdf:RDF/owl:Class/' . $self->synonym_tag ) {
+		$self->incr_synonyms();
+		# detecting closing tag inside, NCIt fix
+		if ( $data =~ m!</! ) {
+			($data) = $data =~ m!>(.*?)</!;    # match to first entry
+		}
+		# remove source tags from efo classes
+		if ( $data =~ m/^(.*)\[accessedResource.*\]$/ ) {
+			$data = $1;
+		}
+		WARN( "Unparsable synonym detected for " . $class->id ) unless defined $data;
+		push @{ $class->synonyms }, $data if defined $data;
+	}
+}
+
+# Handler executed by XML::Parser when the closing tag
+# is encountered. For owl:Class it pushes it into the termlist as it was
+# processed by characterData() already and the parser is ready to
+# process a new owl:Class.
+# 
+# Also strips the closing tag from $path.
+
+sub endElement() {
+	my ( $self, $parseinst, $element ) = @_;
+	get_logger()->debug("OWLParser->endElement  $self, $parseinst, $element");
+	# Reached end of class, add the class to termlist
+	if ( $path eq '/rdf:RDF/owl:Class' ) {
+		push @{ $self->termlist }, $class;
+	}
+	# Reached end of the relationship tag, add to appropriate array
+	# Currently supports only part_of, and even that poorly.
+	# FIXME circular references
+	elsif ( $element eq 'owl:Restriction' ) {
+		WARN "UNDEFINED RESTRICTION " . $class->id if not defined $restriction{type};
+		if ( $restriction{type} =~ m!/part_of$! ) {
+			for my $cls ( @{ $restriction{class} } ) {
+				push @{ $class->part_of }, $cls;
+			}
+		}
+	}
+
+	#remove end element from path
+	$path =~ s!/$element$!!;
+}
+
+1;
