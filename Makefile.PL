@@ -8,14 +8,8 @@ WriteMakefile
           'EXE_FILES' => [],
           'VERSION_FROM' => 'lib/OWL-Simple.pm',
           'PREREQ_PM' => {
-                           'Getopt::Long' => 0,
-                           'IO::File' => 0,
-                           'Benchmark' => 0,
-                           'IO::Handle' => 0,
-                           'GO::Parser' => 0,
-                           'Class::Std' => 0,
                            'Test::More' => 0,
-                           'Text::LevenshteinXS' => 0,
+                           'File::Temp' => 0,
                            'XML::Parser' => '2.34',
                            'Moose' => '0.89',
                            'Log::Log4perl' => 0

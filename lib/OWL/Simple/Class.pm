@@ -12,7 +12,8 @@ OWL::Simple::Class
 Helper class to store information for a single owl:Class parsed by 
 the OWL::Simple::Parser. Not to be used directly.
 
-Exposes label, id and a synonyms array.
+Public properties label, id, synonyms, definition and subClassOf return 
+array references.
 
 =head1 AUTHOR
 
@@ -47,9 +48,3 @@ has 'id' => (
 );
 
 1;
-
-=head1 AUTHOR
-
-Tomasz Adamusiak 2010
-
-=cut

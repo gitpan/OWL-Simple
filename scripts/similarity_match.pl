@@ -15,7 +15,7 @@ The script runs non-interactively and the results have to be manually inspected,
 although it can be expected that anything with a similarity score higher 
 than ~80-90% will be a valid match.  
 
-=head1 USAGE
+=head2 USAGE
 
 similarity_match.pl (-w owlfile || -o obofile || -m meshfile) 
 					-t targetfile -r resultfile 
@@ -84,7 +84,7 @@ use IO::File;
 use Getopt::Long;
 
 use GO::Parser;
-use OWL::Simple::Parser 0.04;
+use OWL::Simple::Parser 0.05;
 use Log::Log4perl qw(:easy);
 use IO::Handle;
 use Benchmark ':hireswallclock';
@@ -374,18 +374,14 @@ sub parseOWL($) {
 
 	# parse file
 	$parser->parse();
-	INFO "Loaded "
-	  . $parser->class_count()
-	  . " classes and "
-	  . $parser->synonyms_count()
-	  . " synonyms";
 
-	for my $OWLClass ( @{ $parser->termlist } ) {
+	
+	while (my ($id, $OWLClass) = each  %{ $parser->class } ) {
 		if  ($OWLClass->label =~ /obsolete/){
 			next;
 		}
-		$term->{ $OWLClass->id }->{label}    = $OWLClass->label;
-		$term->{ $OWLClass->id }->{synonyms} = $OWLClass->synonyms
+		$term->{ $id }->{label}    = $OWLClass->label;
+		$term->{ $id }->{synonyms} = $OWLClass->synonyms
 		  if defined $OWLClass->synonyms;
 	}
 	return $term;

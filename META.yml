@@ -1,7 +1,10 @@
 ---
 abstract: 'A set of modules and scripts for parsing OWL ontologies'
 author:
-  - 'Tomasz Adamusiak <tomasz@ebi.ac.uk>'
+  - 'Tomasz Adamusiak <tomasz.adamusiak@gmail.com>'
+build_requires:
+  File::Temp: 0
+  Test::More: 0
 configure_requires:
   Module::Build: 0.36
 generated_by: 'Module::Build version 0.3607'
@@ -14,21 +17,23 @@ provides:
   OWL::Simple::Class:
     file: lib/OWL/Simple/Class.pm
     version: 0.04
+  OWL::Simple::OBOWriter:
+    file: lib/OWL/Simple/OBOWriter.pm
+    version: 0.01
   OWL::Simple::Parser:
     file: lib/OWL/Simple/Parser.pm
-    version: 0.04
-requires:
+    version: 0.05
+recommends:
   Benchmark: 0
-  Class::Std: 0
   GO::Parser: 0
   Getopt::Long: 0
   IO::File: 0
   IO::Handle: 0
+  Text::LevenshteinXS: 0
+requires:
   Log::Log4perl: 0
   Moose: 0.89
-  Test::More: 0
-  Text::LevenshteinXS: 0
   XML::Parser: 2.34
 resources:
   license: http://www.gnu.org/licenses/old-licenses/gpl-1.0.txt
-version: 0.4
+version: 0.41

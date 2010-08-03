@@ -28,7 +28,6 @@ GO::Parser
 Getopt::Long
 Moose
 Log::Log4perl
-XML::Parser
 Text::LevenshteinXS
 XML::Parser
 Benchmark
