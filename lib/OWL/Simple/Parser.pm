@@ -64,7 +64,7 @@ Hash collection of all the OWL::Simple::Class objects
 
 =head1 AUTHOR
 
-Tomasz Adamusiak 2010
+Tomasz Adamusiak <tomasz@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
@@ -82,12 +82,12 @@ package OWL::Simple::Parser;
 use Moose 0.89;
 use OWL::Simple::Class 0.04;
 use XML::Parser 2.34;
-
+use Data::Dumper;
 use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
 
 
-our $VERSION = 0.05;
+our $VERSION = 0.06;
 
 has 'owlfile'     => ( is => 'rw', isa => 'Str',     required => 1 );
 has 'class'       => ( is => 'ro', isa => 'HashRef', default  => sub { {} } );
@@ -208,7 +208,7 @@ sub characterData {
 
 	# Get rdfs:label
 	if ( $path eq '/rdf:RDF/owl:Class/rdfs:label' ) {
-		$class->label($data);
+		$class->label((defined $class->label() ? $class->label() : '')  .  $data);
 	}
 
 	# Get definition_citation
@@ -267,7 +267,7 @@ sub endElement() {
 	DEBUG "->endElement  $self, $parseinst, $element";
 
 	# Reached end of class, add the class to hash
-	if ( $path eq '/rdf:RDF/owl:Class' ) {
+	if ( $path eq '/rdf:RDF/owl:Class' && $class->id ne "http://www.w3.org/2002/07/owl#Thing" ) {
 		WARN 'Class ' . $class->id . ' possibly duplicated'
 		  if defined $self->class->{ $class->id };
 		my $classhash = $self->class;

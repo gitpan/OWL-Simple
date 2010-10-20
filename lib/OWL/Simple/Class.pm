@@ -17,7 +17,7 @@ array references.
 
 =head1 AUTHOR
 
-Tomasz Adamusiak 2010
+Tomasz Adamusiak <tomasz@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 

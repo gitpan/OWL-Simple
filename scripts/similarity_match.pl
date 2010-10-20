@@ -84,7 +84,8 @@ use IO::File;
 use Getopt::Long;
 
 use GO::Parser;
-use OWL::Simple::Parser 0.05;
+use OWL::Simple::Parser 0.06;
+use MeSH::Parser::ASCII 0.02;
 use Log::Log4perl qw(:easy);
 use IO::Handle;
 use Benchmark ':hireswallclock';
@@ -98,30 +99,38 @@ Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
 sub main() {
 
 	# initalize
-	my ( $owlfile, $obofile, $targetfile, $resultfile, $obotarget, $owltarget, $meshfile );
-
-	GetOptions(
-		"o|obofile=s" => \$obofile,
-		"w|owlfile=s" => \$owlfile,
-		"m|meshfile=s" => \$meshfile,
-		"t|target=s"  => \$targetfile,
-		"r|results=s" => \$resultfile,
-		"obotarget"   => \$obotarget,
-		"owltarget"   => \$owltarget,
+	my (
+		$owlfile,   $obofile,   $targetfile, $resultfile,
+		$obotarget, $owltarget, $meshfile
 	);
 
-	usage() unless ( $owlfile || $obofile || $meshfile) && $targetfile && $resultfile;
+	GetOptions(
+		"o|obofile=s"  => \$obofile,
+		"w|owlfile=s"  => \$owlfile,
+		"m|meshfile=s" => \$meshfile,
+		"t|target=s"   => \$targetfile,
+		"r|results=s"  => \$resultfile,
+		"obotarget"    => \$obotarget,
+		"owltarget"    => \$owltarget,
+	);
+
+	usage()
+	  unless ( $owlfile || $obofile || $meshfile )
+	  && $targetfile
+	  && $resultfile;
 
 	# load appropriate files
 	my ( $ontology, $data );
-	$ontology = parseOWL($owlfile) if defined $owlfile;
-	$ontology = parseOBO($obofile) if defined $obofile;
+	$ontology = parseOWL($owlfile)   if defined $owlfile;
+	$ontology = parseOBO($obofile)   if defined $obofile;
 	$ontology = parseMeSH($meshfile) if defined $meshfile;
-	$data = parseFlat($targetfile) unless defined $obotarget || defined $owltarget;
+	$data     = parseFlat($targetfile)
+	  unless defined $obotarget || defined $owltarget;
 	$data = parseOBO($targetfile) if defined $obotarget;
 	$data = parseOWL($targetfile) if defined $owltarget;
 
 	normalise_hash($ontology);
+	check_data($data);
 
 	#print Dumper( \%term );
 
@@ -165,6 +174,36 @@ sub normalise_hash($) {
 		for my $synonym ( @{ $hash->{$id}->{synonyms} } ) {
 			$hash->{$id}->{normalised_syns_hash}->{$synonym} =
 			  normalise($synonym);
+		}
+	}
+}
+
+=item check_data()
+
+Checks the input data, e.g. removing empty lines or warning of duplicates
+
+=cut
+
+sub check_data($) {
+	my $hash = shift;
+
+	for my $id ( keys %$hash ) {
+		my $label = $hash->{$id}->{label};
+		if ( $label ne '' ) {
+			my $synonyms_checked;
+			for my $synonym ( @{ $hash->{$id}->{synonyms} } ) {
+				if ( $synonym ne '' ) {
+					push @$synonyms_checked, $synonym;
+				}
+				else {
+					WARN 'Empty synonym detected in input';
+				}
+				$hash->{$id}->{synonyms} = $synonyms_checked;
+			}
+		}
+		else {
+			WARN 'Empty line detected in input';
+			delete $hash->{$id};
 		}
 	}
 }
@@ -236,56 +275,19 @@ sub parseMeSH($) {
 	my ($file) = @_;
 	my $term;
 	INFO "Parsing MeSH file $file ...";
-	my $parser;
 
-	# open file
-	open my $fh,     '<', $file;
+	my $parser = MeSH::Parser::ASCII->new( meshfile => $file );
 
-	my $label;
-	my $id;
-	my $synonyms;
-	my $count;
+	# parse the file
+	$parser->parse();
 
-	while (<$fh>) {
-		chomp;
+	# loop through all the headings
+	while ( my ( $id, $heading ) = each %{ $parser->heading } ) {
+		print $id . ' - ' . $heading->{label} . "\n";
 
-		#save
-		if (/^$/) {
-			$count->{terms}++;
-			$term->{$id}->{label}    = $label;
-			$term->{$id}->{synonyms} = $synonyms
-			  if defined $synonyms;
-			DEBUG $label . ' ' . $id . "\n";
-			for my $syn (@$synonyms) {
-				DEBUG "\t" . $syn;
-				$count->{syns}++;
-			}
-		}
-
-		# initialise
-		if ( /^\*NEWRECORD/ ) {
-			$synonyms = undef;
-			$label = undef;
-			$id = undef;
-		}
-
-		$label = ( split(/ = /) )[1] if /^MH = /;
-		$id    = ( split(/ = /) )[1] if /^UI = /;
-
-		# splits on ENTRY = , and then disregards anything after |
-		push @$synonyms, ( split( /\|/, ( split(/ = /) )[1] ) )[0]
-		  if /^ENTRY = /;
-		push @$synonyms, ( split( /\|/, ( split(/ = /) )[1] ) )[0]
-		  if /^PRINT ENTRY = /;
-
+		$term->{$id}->{label}    = $heading->{label};
+		$term->{$id}->{synonyms} = $heading->{synonyms};
 	}
-	close $fh;
-
-	INFO "Loaded "
-	  . $count->{terms}
-	  . " classes and "
-	  . $count->{syns}
-	  . " synonyms";
 
 	return $term;
 }
@@ -311,7 +313,7 @@ sub parseFlat($) {
 
 	close $fh_in;
 	my $data_size = scalar keys %$term;
-	INFO "Loaded $data_size rows unique strings";
+	INFO "Loaded $data_size unique strings";
 
 	return $term;
 }
@@ -335,7 +337,7 @@ sub parseOBO($) {
 	my $synonym_count;
 
 	for my $OBOclass ( @{ $graph->get_all_terms() } ) {
-		if ($OBOclass->is_obsolete){
+		if ( $OBOclass->is_obsolete ) {
 			INFO $OBOclass->public_acc() . ' obsoleted';
 			next;
 		}
@@ -375,13 +377,12 @@ sub parseOWL($) {
 	# parse file
 	$parser->parse();
 
-	
-	while (my ($id, $OWLClass) = each  %{ $parser->class } ) {
-		if  ($OWLClass->label =~ /obsolete/){
+	while ( my ( $id, $OWLClass ) = each %{ $parser->class } ) {
+		if ( $OWLClass->label =~ /obsolete/ ) {
 			next;
 		}
-		$term->{ $id }->{label}    = $OWLClass->label;
-		$term->{ $id }->{synonyms} = $OWLClass->synonyms
+		$term->{$id}->{label}    = $OWLClass->label;
+		$term->{$id}->{synonyms} = $OWLClass->synonyms
 		  if defined $OWLClass->synonyms;
 	}
 	return $term;
@@ -462,7 +463,8 @@ sub calculate_distance($$&) {
 		for my $synonym ( keys %{ $term->{$id}->{normalised_syns_hash} } ) {
 			my $normalised_syn =
 			  $term->{$id}->{normalised_syns_hash}->{$synonym};
-			my $distance = $distance_function->( $term_to_match, $normalised_syn );
+			my $distance =
+			  $distance_function->( $term_to_match, $normalised_syn );
 			if ( !( defined $min_distance ) || $distance < $min_distance ) {
 				$min_distance = $distance;
 				$matched_term = $synonym;
@@ -486,7 +488,7 @@ sub calculate_distance($$&) {
 
 =head1 AUTHORS
 
-Tomasz Adamusiak 2010
+Tomasz Adamusiak <tomasz@cpan.org>
 
 =cut
 

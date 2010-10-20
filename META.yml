@@ -1,7 +1,7 @@
 ---
 abstract: 'A set of modules and scripts for parsing OWL ontologies'
 author:
-  - 'Tomasz Adamusiak <tomasz.adamusiak@gmail.com>'
+  - 'Tomasz Adamusiak <tomasz@cpan.org>'
 build_requires:
   File::Temp: 0
   Test::More: 0
@@ -22,7 +22,7 @@ provides:
     version: 0.01
   OWL::Simple::Parser:
     file: lib/OWL/Simple/Parser.pm
-    version: 0.05
+    version: 0.06
 recommends:
   Benchmark: 0
   GO::Parser: 0
@@ -36,4 +36,4 @@ requires:
   XML::Parser: 2.34
 resources:
   license: http://www.gnu.org/licenses/old-licenses/gpl-1.0.txt
-version: 0.41
+version: 0.42
