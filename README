@@ -7,9 +7,16 @@ SCRIPTS
 
 The similarity_match.pl compares a list of annotations to 
 another ontology and suggests the best match based on some 
-similarity metric (Levenshtein distance). It is also possible 
-to align one ontology to another. Accepts ontologies in both
-OBO and OWL formats as well as MeSH ASCII.
+similarity metric (Levenshtein distance). The string values are
+first normalised (lowercased and split sorted on characters) 
+with additional warning when anagrams are matched.
+
+The script expects the first column in the tab delimited input
+flat file to contain the values to be matched. Other columns
+are preserved in the output.
+
+It is also possible to align one ontology to another and the 
+accepted formats are: OWL, OBO, MeSH ASCII.
 
 INSTALLATION
 
@@ -40,9 +47,6 @@ perldoc OWL::Simple::Parser
 perldoc similarity_match.pl
 
 KNOWN ISSUES
-
-Scripts were tested on UNIX. Correct loading of OWL ontologies 
-can only be guaranteed if they were produced in Protege3.
 
 COPYRIGHT AND LICENSE
 

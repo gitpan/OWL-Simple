@@ -30,11 +30,12 @@ This software is provided "as is" without warranty of any kind.
 
 =cut
 
-our $VERSION = 0.04;
+our $VERSION = 0.05;
 
 has 'label' => ( is => 'rw', isa => 'Str' );
 has 'synonyms' => ( is => 'ro', isa => 'ArrayRef', default => sub { [] } );
 has 'definitions' => ( is => 'ro', isa => 'ArrayRef', default => sub { [] } );
+has 'annotation' => ( is => 'rw', isa => 'Str', default => '');
 has 'xrefs' => ( is => 'ro', isa => 'ArrayRef', default => sub { [] } );
 has 'subClassOf' => ( is => 'ro', isa => 'ArrayRef', default => sub { [] } );
 has 'part_of' => ( is => 'ro', isa => 'ArrayRef', default => sub { [] } );

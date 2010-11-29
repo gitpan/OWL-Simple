@@ -67,12 +67,12 @@ This software is provided "as is" without warranty of any kind.
 package OWL::Simple::OBOWriter;
 
 use Moose 0.89;
-use OWL::Simple::Parser 0.05;
+use OWL::Simple::Parser;
 use Log::Log4perl qw(:easy);
 use XML::Parser 2.34;
 Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
 
-our $VERSION = 0.01;
+our $VERSION = 0.02;
 
 has 'owlparser' => ( is => 'rw', isa => 'OWL::Simple::Parser', required => 1 );
 has 'outputfile' =>
@@ -93,9 +93,9 @@ sub write() {
 	$self->write_typedefs();
 
 	$self->write_terms();
-	
+
 	INFO 'Converted ' . $self->owlparser->owlfile . ' to ' . $self->outputfile;
-	
+
 	1;
 }
 
@@ -110,7 +110,8 @@ sub write_header() {
 		print $fh "data-version: " . $self->version if defined $self->version;
 		print $fh "date: " . datetime();
 		print $fh "auto-generated-by: OWL::Simple::OBOWriter";
-		print $fh "default-namespace: " . $self->namespace if defined $self->namespace;
+		print $fh "default-namespace: " . $self->namespace
+		  if defined $self->namespace;
 
 		#print $fh "idspace: efo http://www.ebi.ac.uk/efo";
 	}
@@ -128,6 +129,7 @@ sub write_typedefs() {
 		print $fh q{};
 		print $fh '[Typedef]';    # term stanza
 		print $fh 'id: part_of';
+		print $fh 'name: part_of';
 	}
 	close $fh;
 	DEBUG "WROTE TYPEDEFS";
@@ -141,21 +143,41 @@ sub parse_owl() {
 	$parser->parse();
 }
 
-# Writes out owl classes.
+sub cleanup_id_for_OLS($) {
+	my $s = shift;
+	$s =~ s!http://www.ebi.ac.uk/efo/!!;
+	$s =~ s!http://purl.org/obo/owl/.*#!!;
+	$s =~ s!http://purl.obolibrary.org/obo/!!;
+	$s =~ s!\Qhttp://www.ebi.ac.uk/chebi/searchId.do;?chebiId=\E!!;
+	$s =~ s!\Qhttp://www.ebi.ac.uk/chebi/searchId.do?chebiId=\E!!;
+	$s =~ s!http://www.ifomis.org/bfo/.*/snap#!snap:!;
+	$s =~ s!http://www.ifomis.org/bfo/.*/span#!span:!;
+	$s =~ s!\Qhttp://www.geneontology.org/formats/oboInOwl#\E!oboInOwl:!;
+	$s =~ s!^PATO_!PATO:!;
+	return $s;
+}
 
+# Writes out owl classes.
 sub write_terms($) {
 	my $self   = shift;
 	my $parser = $self->owlparser;
 	open my $fh, '>>:utf8', $self->outputfile or LOGCROAK $!;
 
-	for my $key (sort (keys %{$parser->class})) {
+	for my $key ( sort ( keys %{ $parser->class } ) ) {
 		my $term = $parser->class->{$key};
+		$key = cleanup_id_for_OLS($key);
+
+		# there's no obsolete parent in OBO
+		next if $key eq 'oboInOwl:ObsoleteClass';
 		local $\ = "\n";    # do the magic of println
 		print $fh q{};
 		print $fh '[Term]';    # term stanza
+
 		print $fh 'id: ' . $key . ' ! ' . $term->label;
 		print $fh 'name: ' . $term->label;
-		print $fh 'def: ' . $term->definitions->[0]
+
+		# write definition (there can be only 0 or 1)
+		print $fh 'def: "' . escape_chars( $term->definitions->[0] ) . '" []'
 		  if defined $term->definitions->[0];
 
 		# write synonyms
@@ -165,19 +187,31 @@ sub write_terms($) {
 
 		# write xrefs
 		for my $xref ( @{ $term->xrefs } ) {
+			$xref = cleanup_id_for_OLS( escape_chars($xref) );
 			print $fh 'xref: ' . $xref;
 		}
 
 		# write isa_s
 		for my $isa ( @{ $term->subClassOf } ) {
-			$isa =~ s!http://www.ebi.ac.uk/efo/!!;
-			print $fh 'is_a: ' . $isa;
+			$isa = cleanup_id_for_OLS($isa);
+			if ( $isa ne 'oboInOwl:ObsoleteClass' ) {
+				print $fh 'is_a: ' . $isa;
+			}
+			else {
+				# should not have any other relations
+				WARN 'obsolete term ' . $key . ' with multiple is_a relations'
+				  if scalar @{ $term->subClassOf } > 1;
+				print $fh 'is_obsolete: true';
+				last;
+			}
+
 		}
 
 		# write relationships
 		for my $part_of ( @{ $term->part_of } ) {
-			$part_of =~ s!http://www.ebi.ac.uk/efo/!!;
+			$part_of = cleanup_id_for_OLS($part_of);
 			# FIXME need to fix circular references
+			# FIXME warn if exists on an obsolete term
 			# print $fh 'relationship: part_of ' . $part_of;
 		}
 	}
@@ -199,8 +233,18 @@ sub datetime() {
 
 sub escape_chars($) {
 	my $s = shift;
+	$s =~ s/\n//g;
+	$s =~ s!\\!\\\\!g;
 	$s =~ s/\[/\\\[/g;
 	$s =~ s/\]/\\\]/g;
+
+	# OBO edit seems to complain about these
+	#$s =~ s/\)/\\\)/g;
+	#$s =~ s/\(/\\\(/g;
+	$s =~ s/\{/\\\{/g;
+	$s =~ s/\}/\\\}/g;
+	$s =~ s/\t/ /g;
+	$s =~ s!,! !;
 	$s =~ s/"//g;
 	return $s;
 }

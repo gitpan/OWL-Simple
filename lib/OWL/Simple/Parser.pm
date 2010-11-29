@@ -80,14 +80,13 @@ This software is provided "as is" without warranty of any kind.
 package OWL::Simple::Parser;
 
 use Moose 0.89;
-use OWL::Simple::Class 0.04;
+use OWL::Simple::Class;
 use XML::Parser 2.34;
 use Data::Dumper;
 use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
 
-
-our $VERSION = 0.06;
+our $VERSION = 0.07;
 
 has 'owlfile'     => ( is => 'rw', isa => 'Str',     required => 1 );
 has 'class'       => ( is => 'ro', isa => 'HashRef', default  => sub { {} } );
@@ -98,7 +97,7 @@ has 'synonym_tag' =>
 
 my $parser;
 my $path = '';
-my $class;
+my $class = OWL::Simple::Class->new();
 my %restriction;
 
 # Default constructor. Initializes the XML::Parser and sets appropriate handlers.
@@ -136,8 +135,8 @@ sub parse() {
 	  . $self->synonyms_count
 	  . ' SYNONYMS from '
 	  . $self->owlfile;
-	  
-	  1;
+
+	1;
 }
 
 # Handler executed by XML::Parser. Adds current element to $path.
@@ -208,29 +207,30 @@ sub characterData {
 
 	# Get rdfs:label
 	if ( $path eq '/rdf:RDF/owl:Class/rdfs:label' ) {
-		$class->label((defined $class->label() ? $class->label() : '')  .  $data);
+		$class->label(
+			( defined $class->label() ? $class->label() : '' ) . $data );
 	}
 
-	# Get definition_citation
-	elsif ( $path eq '/rdf:RDF/owl:Class/efo:definition_citation' ) {
-		push @{ $class->xrefs }, $data if defined $data;
+	# Get definition_citation or defintion
+	elsif ($path eq '/rdf:RDF/owl:Class/efo:definition_citation'
+		|| $path eq '/rdf:RDF/owl:Class/efo:definition' )
+	{
+		$class->annotation(
+			( defined $class->annotation() ? $class->annotation() : '' )
+			. $data );
 	}
 
-	# Get definition
-	elsif ( $path eq '/rdf:RDF/owl:Class/efo:definition' ) {
-
-		# Remove source tags from efo classes
-		# Special case for the OBO converter ONLY
-		# FIXME consider a more general approach
-		# FIXME provenance information is now stored in a separate annotation
-		if ( $data =~ m/^(.*)\[accessedResource: (.*)\]\[.*\]$/ ) {
-			$data = '"' . $1 . '"' . " [$2]";
-		}
-		else {
-			$data = '"' . $data . '" []';
-		}
-		push @{ $class->definitions }, $data if defined $data;
-	}
+	# FIXME obsolete code
+	# Remove source tags from efo classes
+	# Special case for the OBO converter ONLY
+	# FIXME consider a more general approach
+	# FIXME provenance information is now stored in a separate annotation
+	#if ( $data =~ m/^(.*)\[accessedResource: (.*)\]\[.*\]$/ ) {
+	#	$data = '"' . $1 . '"' . " [$2]";
+	#}
+	#else {
+	#	$data = '"' . $data . '" []';
+	#}
 
 	# Get synonyms, either matching to anything with synonym or
 	# alternative_term inside or custom tag from parameters
@@ -267,7 +267,9 @@ sub endElement() {
 	DEBUG "->endElement  $self, $parseinst, $element";
 
 	# Reached end of class, add the class to hash
-	if ( $path eq '/rdf:RDF/owl:Class' && $class->id ne "http://www.w3.org/2002/07/owl#Thing" ) {
+	if (   $path eq '/rdf:RDF/owl:Class'
+		&& $class->id ne "http://www.w3.org/2002/07/owl#Thing" )
+	{
 		WARN 'Class ' . $class->id . ' possibly duplicated'
 		  if defined $self->class->{ $class->id };
 		my $classhash = $self->class;
@@ -286,6 +288,19 @@ sub endElement() {
 			}
 		}
 	}
+
+	# character data can be called multiple times
+	# for a single element, so it's concatanated there
+	# and saved here
+	elsif ( $element eq 'efo:definition_citation' ) {
+		push @{ $class->xrefs }, $class->annotation if $class->annotation() ne '';
+	}
+	elsif ( $element eq 'efo:definition' ) {
+		push @{ $class->definitions }, $class->annotation if $class->annotation() ne '';
+	}
+	print Dumper($class) unless defined $class->annotation;
+	# clear temp annotation
+	$class->annotation('');
 
 	#remove end element from path
 	$path =~ s!/$element$!!;
