@@ -72,7 +72,7 @@ use Log::Log4perl qw(:easy);
 use XML::Parser 2.34;
 Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
 
-our $VERSION = 0.02;
+our $VERSION = 0.04;
 
 has 'owlparser' => ( is => 'rw', isa => 'OWL::Simple::Parser', required => 1 );
 has 'outputfile' =>
@@ -153,7 +153,8 @@ sub cleanup_id_for_OLS($) {
 	$s =~ s!http://www.ifomis.org/bfo/.*/snap#!snap:!;
 	$s =~ s!http://www.ifomis.org/bfo/.*/span#!span:!;
 	$s =~ s!\Qhttp://www.geneontology.org/formats/oboInOwl#\E!oboInOwl:!;
-	$s =~ s!^PATO_!PATO:!;
+	# required for ensembl consumption
+	$s =~ s!_!:!g;
 	return $s;
 }
 
@@ -169,10 +170,16 @@ sub write_terms($) {
 
 		# there's no obsolete parent in OBO
 		next if $key eq 'oboInOwl:ObsoleteClass';
+		
+		# skip unlaballed artefacts
+		unless (defined $term->label){
+			WARN "SKIPPING $key DUE TO UNDEFINED LABEL";
+			next;
+		}
+		# process stanza
 		local $\ = "\n";    # do the magic of println
 		print $fh q{};
-		print $fh '[Term]';    # term stanza
-
+		print $fh '[Term]';    
 		print $fh 'id: ' . $key . ' ! ' . $term->label;
 		print $fh 'name: ' . $term->label;
 
@@ -225,7 +232,7 @@ sub write_terms($) {
 sub datetime() {
 	my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
 	  localtime(time);
-	return sprintf "%02d:%02d:%4d %02d:%02d", $mon + 1, $mday, $year + 1900,
+	return sprintf "%02d:%02d:%4d %02d:%02d", $mday, $mon + 1, $year + 1900,
 	  $hour, $min;
 }
 

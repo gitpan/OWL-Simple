@@ -6,10 +6,8 @@ an OWL ontology into a hash.
 SCRIPTS
 
 The similarity_match.pl compares a list of annotations to 
-another ontology and suggests the best match based on some 
-similarity metric (Levenshtein distance). The string values are
-first normalised (lowercased and split sorted on characters) 
-with additional warning when anagrams are matched.
+another ontology and suggests the best match based on a 
+similarity metric (n-grams). 
 
 The script expects the first column in the tab delimited input
 flat file to contain the values to be matched. Other columns
@@ -35,7 +33,7 @@ GO::Parser
 Getopt::Long
 Moose
 Log::Log4perl
-Text::LevenshteinXS
+List::Util
 XML::Parser
 Benchmark
 

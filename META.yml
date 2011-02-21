@@ -19,7 +19,7 @@ provides:
     version: 0.05
   OWL::Simple::OBOWriter:
     file: lib/OWL/Simple/OBOWriter.pm
-    version: 0.02
+    version: 0.04
   OWL::Simple::Parser:
     file: lib/OWL/Simple/Parser.pm
     version: 0.07
@@ -29,11 +29,11 @@ recommends:
   Getopt::Long: 0
   IO::File: 0
   IO::Handle: 0
-  Text::LevenshteinXS: 0
 requires:
+  List::Util: 0
   Log::Log4perl: 0
   Moose: 0.89
   XML::Parser: 2.34
 resources:
-  license: http://www.gnu.org/licenses/old-licenses/gpl-1.0.txt
-version: 0.43
+  license: http://opensource.org/licenses/gpl-license.php
+version: 0.44

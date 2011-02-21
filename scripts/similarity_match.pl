@@ -75,7 +75,11 @@ length expressed in %. Higher is better.
 
 =cut
 
-use lib 'C:\strawberry\perl\site\lib';
+use lib 'C:\strawberry\perl\site\lib', '/usr/lib64/perl5/5.8.8/',
+  '/nfs/ma/ma-subs/AE/subs/PERL_SCRIPTS/local/lib/perl5/site_perl/',
+  '/ebi/microarray/sw/me/lib/perl5/site_perl/5.8.5',
+  '/ebi/microarray/sw/lib/perl5',
+'/nfs/ma/ma-subs/AE/subs/PERL_SCRIPTS/local/lib64/perl5/site_perl/5.8.5/x86_64-linux-thread-multi/';
 
 use strict;
 use warnings;
@@ -90,20 +94,18 @@ use Log::Log4perl qw(:easy);
 use IO::Handle;
 use Benchmark ':hireswallclock';
 
-use Text::LevenshteinXS;
+use List::Util qw{min max};
 
 use Data::Dumper;
-
-#use Text::WagnerFischer qw(distance);
 
 Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
 
 # script arguments
 my (
-	$owlfile,   $obofile,   $targetfile, $resultfile,
-	$obotarget, $owltarget, $meshfile
+	 $owlfile,   $obofile,   $targetfile, $resultfile,
+	 $obotarget, $owltarget, $meshfile
 );
-my $flat_header = undef;
+
 my @flat_header;
 
 sub main() {
@@ -111,13 +113,13 @@ sub main() {
 	# initalize
 
 	GetOptions(
-		"o|obofile=s"  => \$obofile,
-		"w|owlfile=s"  => \$owlfile,
-		"m|meshfile=s" => \$meshfile,
-		"t|target=s"   => \$targetfile,
-		"r|results=s"  => \$resultfile,
-		"obotarget"    => \$obotarget,
-		"owltarget"    => \$owltarget,
+				"o|obofile=s"  => \$obofile,
+				"w|owlfile=s"  => \$owlfile,
+				"m|meshfile=s" => \$meshfile,
+				"t|target=s"   => \$targetfile,
+				"r|results=s"  => \$resultfile,
+				"obotarget"    => \$obotarget,
+				"owltarget"    => \$owltarget,
 	);
 
 	usage()
@@ -130,7 +132,7 @@ sub main() {
 	$ontology = parseOWL($owlfile)   if defined $owlfile;
 	$ontology = parseOBO($obofile)   if defined $obofile;
 	$ontology = parseMeSH($meshfile) if defined $meshfile;
-	$data     = parseFlat($targetfile)
+	$data = parseFlat($targetfile)
 	  unless defined $obotarget || defined $owltarget;
 	$data = parseOBO($targetfile) if defined $obotarget;
 	$data = parseOWL($targetfile) if defined $owltarget;
@@ -200,14 +202,12 @@ sub check_data($) {
 			for my $synonym ( @{ $hash->{$id}->{synonyms} } ) {
 				if ( $synonym ne '' ) {
 					push @$synonyms_checked, $synonym;
-				}
-				else {
+				} else {
 					WARN 'Empty synonym detected in input';
 				}
 				$hash->{$id}->{synonyms} = $synonyms_checked;
 			}
-		}
-		else {
+		} else {
 			WARN 'Empty line detected in input';
 			delete $hash->{$id};
 		}
@@ -225,14 +225,7 @@ on non-alphanumerics.
 sub normalise($) {
 	my $word = shift;
 
-	# lowercase has to be done before compare
-	$word = lc($word);
-
-	# split on non-alphanumeric chars, sort words, join
-	#$word = join( q{}, sort { $a cmp $b } ( split /[[:^alnum:]]/, $word ) );
-
-	# sort characters alphabetically
-	$word = join '', sort split( '', $word );
+	$word = ngrams(lc($word), 2);
 }
 
 =item align()
@@ -250,15 +243,14 @@ sub process_and_write($$$) {
 	# write header
 	if ( defined $obotarget || defined $owltarget ) {
 		print $fh_out "ID\tOE_VALUE\t";
-	}
-	else {
+	} else {
 		print $fh_out $flat_header[0] . "\t";
 	}
 	print $fh_out "ONTOLOGY_TERM\tACCESSION\tSIMILARITY%";
-	print $fh_out "\t$flat_header[1]" if defined $flat_header;
+	print $fh_out "\t$flat_header[1]" if defined $flat_header[1];
 	print $fh_out "\n";
 
-	my $c;
+	my $c  = 0;
 	my $t0 = new Benchmark;
 
 	for my $id ( keys %$data ) {
@@ -273,7 +265,8 @@ sub process_and_write($$$) {
 		print $fh_out find_match( $ontology, $label );
 
 		# output unprocessed columns back
-		print $fh_out "\t" . $data->{$id}->{ragged_end};
+		print $fh_out "\t" . $data->{$id}->{ragged_end}
+		  if defined $data->{$id}->{ragged_end};
 
 		# line ending
 		print $fh_out "\n";
@@ -310,8 +303,6 @@ sub parseMeSH($) {
 
 	# loop through all the headings
 	while ( my ( $id, $heading ) = each %{ $parser->heading } ) {
-		print $id . ' - ' . $heading->{label} . "\n";
-
 		$term->{$id}->{label}    = $heading->{label};
 		$term->{$id}->{synonyms} = $heading->{synonyms};
 	}
@@ -333,18 +324,20 @@ sub parseFlat($) {
 	open my $fh_in, '<', $file;
 
 	# parse header
-	$flat_header = <$fh_in>;
-	chomp($flat_header);
-	@flat_header = $flat_header =~ /(.*?)\t(.*)/;
-	INFO "Using first line as header <$flat_header>";
+	my $header = <$fh_in>;
+	chomp $header;
+	( $flat_header[0], $flat_header[1] ) = parseFlatColumns($header);
+
+	INFO "Using first line as header <$header>";
 	INFO "Using first column <$flat_header[0]> to match terms";
 
 	# load input
 	while (<$fh_in>) {
 		chomp;
+		next if /^$/;    #skip empty line
 
 		# preserve existing columns in the file
-		my ( $label, $ragged_end ) = /(.*?)\t(.*)/;
+		my ( $label, $ragged_end ) = parseFlatColumns($_);
 
 		# trim
 		$label =~ s/^\s+//;
@@ -364,6 +357,20 @@ sub parseFlat($) {
 	INFO "Loaded $data_size unique strings";
 
 	return $term;
+}
+
+=item parseFlatColumns()
+
+Splits and joins the columns of a flat file. The first column is assigned to the first element. Concatenates the 
+ragged end (leftover columns) into the second element or returns undef for a one-column file.
+
+=cut
+
+sub parseFlatColumns($) {
+	my $header = shift;
+
+	my @temp = split /\t/, $header;
+	return ( $temp[0], ( join( "\t", @temp[ 1 .. $#temp ] ) || undef ) );
 }
 
 =item parseOBO()
@@ -392,7 +399,7 @@ sub parseOBO($) {
 		$class_count++;
 		$synonym_count += scalar( @{ $OBOclass->synonym_list() } );
 
-		$term->{ $OBOclass->public_acc() }->{label} = $OBOclass->name();
+		$term->{ $OBOclass->public_acc() }->{label}    = $OBOclass->name();
 		$term->{ $OBOclass->public_acc() }->{synonyms} =
 		  $OBOclass->synonym_list()
 		  if defined @{ $OBOclass->synonym_list() };
@@ -426,9 +433,12 @@ sub parseOWL($) {
 	$parser->parse();
 
 	while ( my ( $id, $OWLClass ) = each %{ $parser->class } ) {
-		if ( $OWLClass->label =~ /obsolete/ ) {
+		unless ( defined $OWLClass->label ) {
+			WARN "Undefined label in $id";
+		} elsif ( $OWLClass->label =~ /obsolete/ ) {
 			next;
 		}
+
 		$term->{$id}->{label}    = $OWLClass->label;
 		$term->{$id}->{synonyms} = $OWLClass->synonyms
 		  if defined $OWLClass->synonyms;
@@ -453,7 +463,7 @@ sub find_match($$) {
 		$term_to_match,
 		sub($$) {
 			my ( $word1, $word2 ) = @_;
-			return Text::LevenshteinXS::distance( $word1, $word2 );
+			return ngram_similarity( $word1, $word2 );
 		}
 	);
 
@@ -489,63 +499,80 @@ sub calculate_distance($$&) {
 	my $matched_term;
 	my $matched_acc;
 	my $type;
-	my $min_distance = undef;
-	my $similarity;
+	my $max_similarity = undef;
 
 	# ontology hash was already prenormalised earlier
 	my $normalised_term = normalise($term_to_match);
+	DEBUG $term_to_match . ' - ' . $normalised_term;
 
 	for my $id ( keys %$ontology ) {
 		my $label            = $ontology->{$id}->{label};
 		my $normalised_label = $ontology->{$id}->{normalised_label};
-		my $distance =
+		my $similarity       =
 		  $distance_function->( $normalised_term, $normalised_label );
-		if ( !( defined $min_distance ) || $distance < $min_distance ) {
-			$min_distance = $distance;
-			$matched_term = $label;
-			$matched_acc  = $id;
-			$type         = "label";
+		if ( !( defined $max_similarity ) || $similarity > $max_similarity ) {
+			$max_similarity = $similarity;
+			$matched_term   = $label;
+			$matched_acc    = $id;
+			$type           = "label";
 		}
 
 		for my $synonym ( keys %{ $ontology->{$id}->{normalised_syns_hash} } ) {
 			my $normalised_syn =
 			  $ontology->{$id}->{normalised_syns_hash}->{$synonym};
-			my $distance =
+			my $similarity =
 			  $distance_function->( $normalised_term, $normalised_syn );
-			if ( !( defined $min_distance ) || $distance < $min_distance ) {
-				$min_distance = $distance;
-				$matched_term = $synonym;
-				$matched_acc  = $id;
-				$type         = "synonym";
+			if ( !( defined $max_similarity ) || $similarity > $max_similarity )
+			{
+				$max_similarity = $similarity;
+				$matched_term   = $synonym;
+				$matched_acc    = $id;
+				$type           = "synonym";
 			}
 		}
 	}
 
-	if ( lc($matched_term) eq lc($term_to_match) ) {    # perfect match
-		$similarity = 100;
-	}
-	else {
-
-		# normalise the minimal LD distance
-		$similarity = int(
-			(
-				( length($term_to_match) - $min_distance ) /
-				  length($term_to_match)
-			) * 100
-		);
-		if ( $similarity == 100 ) {
-			WARN
-"Possible anagram mismatch, mapping <$term_to_match> to <$matched_term> at at 99% similarity";
-			$similarity = 99;    # make sure it's eyballed at some point
-		}
-	}
-
 	return {
-		term => $matched_term,
-		acc  => $matched_acc,
-		sim  => $similarity,
-		type => $type,
+			 term => $matched_term,
+			 acc  => $matched_acc,
+			 sim  => $max_similarity,
+			 type => $type,
 	};
+}
+
+# http://staffwww.dcs.shef.ac.uk/people/S.Chapman/stringmetrics.html
+sub ngrams {
+	my $string = shift;
+	my $q      = shift;
+
+	my $ngram;
+
+	# pad the string
+	for ( 1 .. $q - 1 ) {
+		$string = '^' . $string;
+		$string = $string . '$';
+	}
+
+	# split ito ngrams
+	for my $i ( 0 .. length($string) - $q ) {
+		$ngram->{ substr $string, $i, $q }++;
+	}
+
+	return $ngram;
+}
+
+sub ngram_similarity {
+	my ( $template, $new ) = @_;
+	my $ngrams_matched = 0;
+
+	for my $template_ngram ( keys %{$template} ) {
+		$ngrams_matched++ if exists $new->{$template_ngram};
+	}
+
+	# normalise
+	return
+	  int( $ngrams_matched / max( scalar keys %$template, scalar keys %$new ) *
+		   100 );
 }
 
 =back

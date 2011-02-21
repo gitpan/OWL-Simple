@@ -6,7 +6,7 @@ my $builder = Module::Build->new(
     module_name         => 'OWL-Simple',
     license             => 'gpl',
     dist_author         => q{Tomasz Adamusiak <tomasz@cpan.org>},
-    dist_version => '0.43',
+    dist_version => '0.44',
     dist_abstract => 'A set of modules and scripts for parsing OWL ontologies',
     build_requires => {
     	'Test::More' => 0,
@@ -15,6 +15,7 @@ my $builder = Module::Build->new(
     requires => {
 		'Moose' => '0.89',
 		'Log::Log4perl' => 0,
+		'List::Util' => 0,
 		'XML::Parser' => '2.34',
     },
     recommends => {
@@ -23,7 +24,7 @@ my $builder = Module::Build->new(
 		'Getopt::Long' => 0,
     	'GO::Parser' => 0,
     	'Benchmark' => 0,
-		'Text::LevenshteinXS' => 0,
+		#'Text::LevenshteinXS' => 0,
     },
     #script_files        => ['scripts/similarity_match.pl'],
     add_to_cleanup      => [ 'OWL-Simple-*' ],

@@ -1,3 +1,10 @@
+Version 0.44 21/02/2011
+Fixed incorrect date output
+Log and skip empty labels
+OBO::Writer 0.04 - replaces underscores with colons in ids and xrefs
+Fixes to similarity_match.pl script (single column flat files)
+Changed the distance function from Levenshtein to n-grams
+
 Version 0.43 29/11/2010
 Alignment of the OBO writer to the output accepted by OLS
 A better method to normalise string values in similarity_match.pl

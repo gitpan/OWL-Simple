@@ -2,17 +2,18 @@
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
-          'PL_FILES' => {},
-          'INSTALLDIRS' => 'site',
-          'NAME' => 'OWL-Simple',
-          'EXE_FILES' => [],
-          'VERSION_FROM' => 'lib/OWL-Simple.pm',
-          'PREREQ_PM' => {
-                           'Test::More' => 0,
-                           'File::Temp' => 0,
-                           'XML::Parser' => '2.34',
-                           'Moose' => '0.89',
-                           'Log::Log4perl' => 0
-                         }
-        )
+  'PL_FILES' => {},
+  'INSTALLDIRS' => 'site',
+  'NAME' => 'OWL-Simple',
+  'EXE_FILES' => [],
+  'VERSION_FROM' => 'lib/OWL-Simple.pm',
+  'PREREQ_PM' => {
+                   'Test::More' => 0,
+                   'List::Util' => 0,
+                   'File::Temp' => 0,
+                   'XML::Parser' => '2.34',
+                   'Moose' => '0.89',
+                   'Log::Log4perl' => 0
+                 }
+)
 ;
