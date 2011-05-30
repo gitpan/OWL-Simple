@@ -3,7 +3,7 @@
 #use lib 'C:\work\workspace\clean_ontology_terms\cpan\OWL-Simple\lib';
 use OWL::Simple::Parser;
 use File::Temp;
-use Test::More tests => 7;
+use Test::More tests => 8;
 
 # turn off info for test
 use Log::Log4perl qw(:easy);
@@ -18,6 +18,7 @@ $fh->printflush(
 my $parser = OWL::Simple::Parser->new( owlfile => $fh->filename );
 
 ok( $parser->parse,                'Parser loads' );
+ok( $parser->version() eq '2.5classified', 'Version found' );
 ok( $parser->class_count() > 0,    'Classes count' );
 ok( $parser->synonyms_count() > 0, 'Synonyms count' );
 ok( $parser->class->{EFO_0000616}->definitions->[0], 'Found definitions' );
@@ -102,6 +103,8 @@ __DATA__
     >Bioportal mappings to Human disease (DOID) ver1.192</rdfs:comment>
     <owl:versionInfo rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
     >2.5</owl:versionInfo>
+    <owl:versionInfo rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >classified</owl:versionInfo>
     <efo:creator rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
     >Helen Parkinson</efo:creator>
     <rdfs:comment rdf:datatype="http://www.w3.org/2001/XMLSchema#string"

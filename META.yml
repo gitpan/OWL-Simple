@@ -19,10 +19,10 @@ provides:
     version: 0.05
   OWL::Simple::OBOWriter:
     file: lib/OWL/Simple/OBOWriter.pm
-    version: 0.04
+    version: 0.05
   OWL::Simple::Parser:
     file: lib/OWL/Simple/Parser.pm
-    version: 0.07
+    version: 0.1
 recommends:
   Benchmark: 0
   GO::Parser: 0
@@ -36,4 +36,4 @@ requires:
   XML::Parser: 2.34
 resources:
   license: http://opensource.org/licenses/gpl-license.php
-version: 0.44
+version: 0.47

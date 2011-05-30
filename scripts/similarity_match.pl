@@ -7,7 +7,7 @@ similarity_match.pl
 =head1 SYNOPSIS
 
 Compares a list of annotations to another ontology and suggests the best match 
-based on some similarity metric (Levenshtein distance). It is also possible to 
+based on some similarity metric (n-grams). It is also possible to 
 align one ontology to another. Accepts ontologies in both OBO and OWL formats 
 as well as MeSH ASCII.
 
@@ -75,11 +75,12 @@ length expressed in %. Higher is better.
 
 =cut
 
-use lib 'C:\strawberry\perl\site\lib', '/usr/lib64/perl5/5.8.8/',
-  '/nfs/ma/ma-subs/AE/subs/PERL_SCRIPTS/local/lib/perl5/site_perl/',
-  '/ebi/microarray/sw/me/lib/perl5/site_perl/5.8.5',
-  '/ebi/microarray/sw/lib/perl5',
-'/nfs/ma/ma-subs/AE/subs/PERL_SCRIPTS/local/lib64/perl5/site_perl/5.8.5/x86_64-linux-thread-multi/';
+#use lib 'C:\work\workspace\clean_ontology_terms\cpan\OWL-Simple\lib';
+#use lib 'C:\strawberry\perl\site\lib',
+#		'/ebi/microarray/ma-subs/AE/subs/PERL_SCRIPTS/local/lib/perl5/',
+#        '/ebi/microarray/ma-subs/AE/subs/PERL_SCRIPTS/local/lib64/perl5/',
+#        '/ebi/microarray/ma-subs/AE/subs/PERL_SCRIPTS/local/lib/perl5/site_perl/',
+#        '/ebi/microarray/ma-subs/AE/subs/PERL_SCRIPTS/local/lib64/perl5/site_perl/';
 
 use strict;
 use warnings;
@@ -88,7 +89,7 @@ use IO::File;
 use Getopt::Long;
 
 use GO::Parser;
-use OWL::Simple::Parser 0.06;
+use OWL::Simple::Parser 0.10;
 use MeSH::Parser::ASCII 0.02;
 use Log::Log4perl qw(:easy);
 use IO::Handle;
@@ -217,8 +218,7 @@ sub check_data($) {
 =item normalise()
 
 Normalises a string by changing it lowercase and
-sorting all the words within a phrase splitting
-on non-alphanumerics.
+splitting into 2-grams.
 
 =cut
 

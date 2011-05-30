@@ -67,12 +67,12 @@ This software is provided "as is" without warranty of any kind.
 package OWL::Simple::OBOWriter;
 
 use Moose 0.89;
-use OWL::Simple::Parser;
+use OWL::Simple::Parser 0.10;
 use Log::Log4perl qw(:easy);
 use XML::Parser 2.34;
 Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
 
-our $VERSION = 0.04;
+our $VERSION = 0.05;
 
 has 'owlparser' => ( is => 'rw', isa => 'OWL::Simple::Parser', required => 1 );
 has 'outputfile' =>
@@ -103,11 +103,17 @@ sub write() {
 
 sub write_header() {
 	my $self = shift;
+	my $parser = $self->owlparser;
+	
 	open my $fh, '>:utf8', $self->outputfile or LOGCROAK $!;
 	{
 		local $\ = "\n";    # do the magic of println
 		print $fh 'format-version: 1.2';
-		print $fh "data-version: " . $self->version if defined $self->version;
+		if (defined $self->version){
+			print $fh "data-version: " . $self->version;	
+		} else {
+			print $fh "data-version: " . $parser->version;
+		}
 		print $fh "date: " . datetime();
 		print $fh "auto-generated-by: OWL::Simple::OBOWriter";
 		print $fh "default-namespace: " . $self->namespace

@@ -56,6 +56,10 @@ Number of classes loaded by the parser.
 
 Number of synonyms loaded by the parser.
 
+=item version()
+
+Version of the ontology extracted from the owl:versionInfo.
+
 =item class
 
 Hash collection of all the OWL::Simple::Class objects
@@ -86,12 +90,13 @@ use Data::Dumper;
 use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
 
-our $VERSION = 0.07;
+our $VERSION = 0.10;
 
 has 'owlfile'     => ( is => 'rw', isa => 'Str',     required => 1 );
 has 'class'       => ( is => 'ro', isa => 'HashRef', default  => sub { {} } );
 has 'class_count' => ( is => 'rw', isa => 'Int',     default  => 0 );
 has 'synonyms_count' => ( is => 'rw', isa => 'Int', default => 0 );
+has 'version' => ( is => 'rw', isa => 'Str' , default => '');
 has 'synonym_tag' =>
   ( is => 'rw', isa => 'Str', default => 'efo:alternative_term' );
 
@@ -212,46 +217,39 @@ sub characterData {
 	}
 
 	# Get definition_citation or defintion
-	elsif ($path eq '/rdf:RDF/owl:Class/efo:definition_citation'
-		|| $path eq '/rdf:RDF/owl:Class/efo:definition' )
+	elsif (
+		$path =~ m!^/rdf:RDF/owl:Class/\w*:?\w*(definition|definition_citation)\w*!
+		)
 	{
 		$class->annotation(
 			( defined $class->annotation() ? $class->annotation() : '' )
 			. $data );
 	}
-
-	# FIXME obsolete code
-	# Remove source tags from efo classes
-	# Special case for the OBO converter ONLY
-	# FIXME consider a more general approach
-	# FIXME provenance information is now stored in a separate annotation
-	#if ( $data =~ m/^(.*)\[accessedResource: (.*)\]\[.*\]$/ ) {
-	#	$data = '"' . $1 . '"' . " [$2]";
-	#}
-	#else {
-	#	$data = '"' . $data . '" []';
-	#}
-
+	
 	# Get synonyms, either matching to anything with synonym or
 	# alternative_term inside or custom tag from parameters
 	elsif (
-		   $path =~ m{^/rdf:RDF/owl:Class/\w*:?\w*(synonym|alternative_term)\w*}
+		   $path =~ m!^/rdf:RDF/owl:Class/\w*:?\w*(synonym|alternative_term)\w*!
 		|| $path eq '/rdf:RDF/owl:Class/' . $self->synonym_tag )
 	{
-		$self->incr_synonyms();
-
-		# detecting closing tag inside, NCIt fix
-		if ( $data =~ m!</! ) {
-			($data) = $data =~ m!>(.*?)</!;    # match to first entry
-		}
-
-		# remove source tags from efo classes
-		if ( $data =~ m/^(.*)\[accessedResource.*\]$/ ) {
-			$data = $1;
-		}
+		$class->annotation(
+			( defined $class->annotation() ? $class->annotation() : '' )
+			. $data );
 		WARN( "Unparsable synonym detected for " . $class->id )
-		  unless defined $data;
-		push @{ $class->synonyms }, $data if defined $data;
+		  unless defined $data;	
+		
+		# detecting closing tag inside, NCIt fix
+		# FIXME this is probably no longer necessary
+		# once the synonym is concatenated, but have not checked
+		#if ( $data =~ m!</! ) {
+		#	($data) = $data =~ m!>(.*?)</!;    # match to first entry
+		#}
+
+	}
+	
+	# Extract version information
+	elsif ( $path eq '/rdf:RDF/owl:Ontology/owl:versionInfo' ){
+		$self->version($self->version() . $data);
 	}
 }
 
@@ -292,11 +290,16 @@ sub endElement() {
 	# character data can be called multiple times
 	# for a single element, so it's concatanated there
 	# and saved here
-	elsif ( $element eq 'efo:definition_citation' ) {
+	elsif ( $path =~ m!^/rdf:RDF/owl:Class/\w*:?\w*definition_citation$! ){
 		push @{ $class->xrefs }, $class->annotation if $class->annotation() ne '';
 	}
-	elsif ( $element eq 'efo:definition' ) {
+	elsif ( $path =~ m!^/rdf:RDF/owl:Class/\w*:?\w*definition$! ){
 		push @{ $class->definitions }, $class->annotation if $class->annotation() ne '';
+	}
+	elsif ( $path =~ m!^/rdf:RDF/owl:Class/\w*:?\w*(synonym|alternative_term)\w*!
+		|| $path eq '/rdf:RDF/owl:Class/' . $self->synonym_tag ){
+		$self->incr_synonyms();
+		push @{ $class->synonyms }, $class->annotation if $class->annotation() ne '';
 	}
 	print Dumper($class) unless defined $class->annotation;
 	# clear temp annotation

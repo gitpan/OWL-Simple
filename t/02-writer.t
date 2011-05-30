@@ -22,7 +22,6 @@ my $parser = OWL::Simple::Parser->new( owlfile => $fh->filename );
 my $writer = OWL::Simple::OBOWriter->new(
 	owlparser  => $parser,
 	outputfile => $fh_out->filename,
-	version => '2.8',
 	namespace => 'efo',
 );
 
