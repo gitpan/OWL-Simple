@@ -3,11 +3,15 @@ use warnings;
 use Module::Build;
 
 my $builder = Module::Build->new(
-    module_name         => 'OWL-Simple',
+    dist_name         => 'OWL-Simple',
+    module_name	      => 'OWL::Simple::Parser',
     license             => 'gpl',
     dist_author         => q{Tomasz Adamusiak <tomasz@cpan.org>},
-    dist_version => '0.47',
+    dist_version => '0.48',
     dist_abstract => 'A set of modules and scripts for parsing OWL ontologies',
+    configure_requires => { 
+    	'Module::Build' => 0.38 
+    },
     build_requires => {
     	'Test::More' => 0,
     	'File::Temp' => 0,

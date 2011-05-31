@@ -1,4 +1,9 @@
-Version 0.47 27/05/2011
+Version 0.48 30/05/2011
+Fixes to the Makefile.PL
+
+Version 0.47 30/05/2011
+Making OWL::Simple::Parser namespace agnostic and fixes
+in the documentation
 
 Version 0.46 22/02/2011
 Changes to parse and convert owl:versionInfo
@@ -28,3 +33,23 @@ Fixed tests and improved docs
 
 Version 0.40 1/8/2010
 First public release
+
+COPYRIGHT & LICENSE
+===================
+
+Copyright (c) 2010 - 2011 European Molecular Biology Laboratory
+
+Contact: tomasz@cpan.org
+ 
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Lesser General Public License as published by the Free
+Software Foundation; either version 3 of the License, or (at your option) any
+later version.
+ 
+This program is distributed in the hope that it will be useful, but WITHOUT
+ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU Lesser General Public License for more
+details.
+
+You should have received a copy of the GNU Lesser General Public License along
+with this program. If not, see <http://www.gnu.org/licenses/>.

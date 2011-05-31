@@ -12,3 +12,4 @@ scripts/similarity_match.pl
 t/00-load.t
 t/01-parser.t
 t/02-writer.t
+META.json
