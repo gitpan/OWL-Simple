@@ -72,7 +72,7 @@ use Log::Log4perl qw(:easy);
 use XML::Parser 2.34;
 Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
 
-our $VERSION = 0.05;
+our $VERSION = 0.06;
 
 has 'owlparser' => ( is => 'rw', isa => 'OWL::Simple::Parser', required => 1 );
 has 'outputfile' =>
@@ -90,9 +90,9 @@ sub write() {
 
 	$self->write_header();
 
-	$self->write_typedefs();
-
 	$self->write_terms();
+	
+	$self->write_typedefs();
 
 	INFO 'Converted ' . $self->owlparser->owlfile . ' to ' . $self->outputfile;
 
@@ -115,7 +115,7 @@ sub write_header() {
 			print $fh "data-version: " . $parser->version;
 		}
 		print $fh "date: " . datetime();
-		print $fh "auto-generated-by: OWL::Simple::OBOWriter";
+		print $fh "auto-generated-by: OWL::Simple::OBOWriter $VERSION";
 		print $fh "default-namespace: " . $self->namespace
 		  if defined $self->namespace;
 
@@ -207,15 +207,18 @@ sub write_terms($) {
 		# write isa_s
 		for my $isa ( @{ $term->subClassOf } ) {
 			$isa = cleanup_id_for_OLS($isa);
-			if ( $isa ne 'oboInOwl:ObsoleteClass' ) {
-				print $fh 'is_a: ' . $isa;
+			if ( $isa eq 'http://www.w3.org/2002/07/owl#Thing' ) {
+				INFO 'Skipping owl#Thing on ' . $key . ' ! ' . $term->label;;
 			}
-			else {
+			elsif ( $isa eq 'oboInOwl:ObsoleteClass' ) {
 				# should not have any other relations
 				WARN 'obsolete term ' . $key . ' with multiple is_a relations'
 				  if scalar @{ $term->subClassOf } > 1;
 				print $fh 'is_obsolete: true';
 				last;
+			}
+			else {
+				print $fh 'is_a: ' . $isa;
 			}
 
 		}

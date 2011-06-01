@@ -20,7 +20,7 @@ provides:
     version: 0.05
   OWL::Simple::OBOWriter:
     file: lib/OWL/Simple/OBOWriter.pm
-    version: 0.05
+    version: 0.06
   OWL::Simple::Parser:
     file: lib/OWL/Simple/Parser.pm
     version: 1
@@ -37,4 +37,4 @@ requires:
   XML::Parser: 2.34
 resources:
   license: http://opensource.org/licenses/gpl-license.php
-version: 0.49
+version: 0.50

@@ -9,12 +9,21 @@ The similarity_match.pl compares a list of annotations to
 another ontology and suggests the best match based on a 
 similarity metric (n-grams). 
 
+Usage:
+    similarity_match.pl (-w owlfile || -o obofile || -m meshfile)
+                        -t targetfile -r resultfile
+                        [--obotarget || --owltarget]
+
+Optional '--obotarget' setting specifies that the target file is an OBO ontology
+Optional '--owltarget' setting specifies that the target file is an OWL ontology
+
 The script expects the first column in the tab delimited input
 flat file to contain the values to be matched. Other columns
 are preserved in the output.
 
 It is also possible to align one ontology to another and the 
-accepted formats are: OWL, OBO, MeSH ASCII.
+accepted formats are: OWL, OBO, MeSH ASCII (see the optional obotarget
+and owltarget parameters).
 
 INSTALLATION
 
