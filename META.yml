@@ -23,7 +23,7 @@ provides:
     version: 0.05
   OWL::Simple::Parser:
     file: lib/OWL/Simple/Parser.pm
-    version: 0.1
+    version: 1
 recommends:
   Benchmark: 0
   GO::Parser: 0
@@ -37,4 +37,4 @@ requires:
   XML::Parser: 2.34
 resources:
   license: http://opensource.org/licenses/gpl-license.php
-version: 0.48
+version: 0.49

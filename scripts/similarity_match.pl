@@ -89,7 +89,7 @@ use IO::File;
 use Getopt::Long;
 
 use GO::Parser;
-use OWL::Simple::Parser 0.10;
+use OWL::Simple::Parser 1.00;
 use MeSH::Parser::ASCII 0.02;
 use Log::Log4perl qw(:easy);
 use IO::Handle;

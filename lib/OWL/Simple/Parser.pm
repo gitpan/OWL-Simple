@@ -90,7 +90,7 @@ use Data::Dumper;
 use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
 
-our $VERSION = 0.10;
+our $VERSION = 1.00;
 
 has 'owlfile'     => ( is => 'rw', isa => 'Str',     required => 1 );
 has 'class'       => ( is => 'ro', isa => 'HashRef', default  => sub { {} } );
