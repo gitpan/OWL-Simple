@@ -1,3 +1,6 @@
+Version 0.51 1/12/2011
+Added optional definition_tag
+
 Version 0.50 1/06/2011
 OBOWriter now outputs Term stanzas before Typedefs and 
 discards owl#Thing parent

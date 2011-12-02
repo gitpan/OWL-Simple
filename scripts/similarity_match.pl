@@ -9,7 +9,7 @@ similarity_match.pl
 Compares a list of annotations to another ontology and suggests the best match 
 based on some similarity metric (n-grams). It is also possible to 
 align one ontology to another. Accepts ontologies in both OBO and OWL formats 
-as well as MeSH ASCII.
+as well as MeSH ASCII and OMIM txt.
 
 The script runs non-interactively and the results have to be manually inspected, 
 although it can be expected that anything with a similarity score higher 
@@ -17,7 +17,7 @@ than ~80-90% will be a valid match.
 
 =head2 USAGE
 
-similarity_match.pl (-w owlfile || -o obofile || -m meshfile) 
+similarity_match.pl (-w owlfile || -o obofile || -m meshfile || -i omimfile) 
 					-t targetfile -r resultfile 
 					[--obotarget || --owltarget]
 
@@ -76,11 +76,11 @@ length expressed in %. Higher is better.
 =cut
 
 #use lib 'C:\work\workspace\clean_ontology_terms\cpan\OWL-Simple\lib';
-#use lib 'C:\strawberry\perl\site\lib',
-#		'/ebi/microarray/ma-subs/AE/subs/PERL_SCRIPTS/local/lib/perl5/',
-#        '/ebi/microarray/ma-subs/AE/subs/PERL_SCRIPTS/local/lib64/perl5/',
-#        '/ebi/microarray/ma-subs/AE/subs/PERL_SCRIPTS/local/lib/perl5/site_perl/',
-#        '/ebi/microarray/ma-subs/AE/subs/PERL_SCRIPTS/local/lib64/perl5/site_perl/';
+use lib 'C:\strawberry\perl\site\lib',
+		'/ebi/microarray/ma-subs/AE/subs/PERL_SCRIPTS/local/lib/perl5/',
+        '/ebi/microarray/ma-subs/AE/subs/PERL_SCRIPTS/local/lib64/perl5/',
+        '/ebi/microarray/ma-subs/AE/subs/PERL_SCRIPTS/local/lib/perl5/site_perl/',
+        '/ebi/microarray/ma-subs/AE/subs/PERL_SCRIPTS/local/lib64/perl5/site_perl/';
 
 use strict;
 use warnings;
@@ -91,6 +91,7 @@ use Getopt::Long;
 use GO::Parser;
 use OWL::Simple::Parser 1.00;
 use MeSH::Parser::ASCII 0.02;
+use Bio::Phenotype::OMIM::OMIMparser;
 use Log::Log4perl qw(:easy);
 use IO::Handle;
 use Benchmark ':hireswallclock';
@@ -104,7 +105,7 @@ Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
 # script arguments
 my (
 	 $owlfile,   $obofile,   $targetfile, $resultfile,
-	 $obotarget, $owltarget, $meshfile
+	 $obotarget, $owltarget, $meshfile,   $omimfile
 );
 
 my @flat_header;
@@ -117,6 +118,7 @@ sub main() {
 				"o|obofile=s"  => \$obofile,
 				"w|owlfile=s"  => \$owlfile,
 				"m|meshfile=s" => \$meshfile,
+				"i|omimfile=s" => \$omimfile,
 				"t|target=s"   => \$targetfile,
 				"r|results=s"  => \$resultfile,
 				"obotarget"    => \$obotarget,
@@ -124,20 +126,23 @@ sub main() {
 	);
 
 	usage()
-	  unless ( $owlfile || $obofile || $meshfile )
+	  unless ( $owlfile || $obofile || $meshfile || $omimfile )
 	  && $targetfile
 	  && $resultfile;
 
 	# load appropriate files
 	my ( $ontology, $data );
-	$ontology = parseOWL($owlfile)   if defined $owlfile;
-	$ontology = parseOBO($obofile)   if defined $obofile;
-	$ontology = parseMeSH($meshfile) if defined $meshfile;
+	$ontology = parseOWL($owlfile)   if $owlfile;
+	$ontology = parseOBO($obofile)   if $obofile;
+	$ontology = parseMeSH($meshfile) if $meshfile;
+	$ontology = parseOMIM($omimfile) if $omimfile;
 	$data = parseFlat($targetfile)
-	  unless defined $obotarget || defined $owltarget;
-	$data = parseOBO($targetfile) if defined $obotarget;
-	$data = parseOWL($targetfile) if defined $owltarget;
+	  unless defined $obotarget || $owltarget;
+	$data = parseOBO($targetfile) if $obotarget;
+	$data = parseOWL($targetfile) if $owltarget;
 
+	# note no need to normalise data as each item
+	# gets only a single pass
 	normalise_hash($ontology);
 	check_data($data);
 
@@ -149,7 +154,7 @@ sub main() {
 sub usage() {
 	print(<<"USAGE");
 
-similarity_match.pl (-w owlfile || -o obofile || -m meshfile) 
+similarity_match.pl (-w owlfile || -o obofile || -m meshfile || -i omimfile) 
 					-t targetfile -r resultfile 
 					[--obotarget || --owltarget]
 
@@ -225,7 +230,7 @@ splitting into 2-grams.
 sub normalise($) {
 	my $word = shift;
 
-	$word = ngrams(lc($word), 2);
+	$word = ngrams( lc($word), 2 );
 }
 
 =item align()
@@ -241,8 +246,8 @@ sub process_and_write($$$) {
 	$fh_out->autoflush(1);
 
 	# write header
-	if ( defined $obotarget || defined $owltarget ) {
-		print $fh_out "ID\tOE_VALUE\t";
+	if ( $obotarget || $owltarget ) {
+		print $fh_out "ID\tLABEL\tOE_VALUE\t";
 	} else {
 		print $fh_out $flat_header[0] . "\t";
 	}
@@ -258,7 +263,7 @@ sub process_and_write($$$) {
 		my $label = $data->{$id}->{label};
 
 		# do not output id for flat files as it's same as label
-		print $fh_out $id . "\t"
+		print $fh_out $id . "\t" . $label . "\t"
 		  if defined $obotarget || defined $owltarget;
 
 		# output match info
@@ -273,7 +278,7 @@ sub process_and_write($$$) {
 
 		# this only happens for owl or obo targets
 		for my $synonym ( @{ $data->{$id}->{synonyms} } ) {
-			print $fh_out $id . "\t" . find_match( $ontology, $synonym ) . "\n";
+			print $fh_out $id . "\t" . $label . "\t" . find_match( $ontology, $synonym ) . "\n";
 			$c++;
 		}
 		INFO "Processed " . $c
@@ -306,6 +311,68 @@ sub parseMeSH($) {
 		$term->{$id}->{label}    = $heading->{label};
 		$term->{$id}->{synonyms} = $heading->{synonyms};
 	}
+
+	return $term;
+}
+
+=item parseMeSH()
+
+Custom OMIM parser.
+
+=cut
+
+sub parseOMIM($) {
+	my ($file) = @_;
+	my $term;
+	INFO "Parsing OMIM file $file ...";
+
+	my $synonym_count;
+	
+	# FIXME: The external parser is suboptimal in many ways
+	# if this becomes more often used consider creating
+	# a custom one from sratch
+	my $parser = Bio::Phenotype::OMIM::OMIMparser->new( -omimtext => $file );
+
+	# loop through all the records
+	while ( my $omim_entry = $parser->next_phenotype() ) {
+
+		# *FIELD* NO
+		my $id = $omim_entry->MIM_number();
+		$id    = 'OMIM:' . $id;
+		
+		# *FIELD* TI - first line
+		my $title = $omim_entry->title();
+		$title =~ s/^.\d+ //; # remove id from title
+		$title =~ s/INCLUDED//g; # remove INCLUDED as it screws up scoring
+
+		# *FIELD* TI - additional lines
+		my $alt = $omim_entry->alternative_titles_and_symbols();
+		# OMIM uses this weird delimiter ;;
+		# to signal sections irrespective of actual line endings
+		# this is a major headache to resolve, the parser doesn't 
+		# do this and we're not going to bother with it either
+		$alt =~ s/;;//g; 
+		$alt =~ s/INCLUDED//g; # remove INCLUDED as it screws up scoring
+		my @synonyms = split m!\n!, $alt;
+		# if alt doesn't start with ;; it's an overspill from the
+		# title (go figure!)
+		if ($alt ne '' && 
+				$omim_entry->alternative_titles_and_symbols() !~ /^;;/) {
+			$title .= shift @synonyms;
+		}
+		
+		$term->{$id}->{label} = $title;
+		$term->{$id}->{synonyms} = \@synonyms;
+		
+		$synonym_count += scalar @synonyms;
+	
+	}
+
+		INFO "Loaded "
+	  . keys( %$term )
+	  . " OMIM terms and "
+	  . $synonym_count
+	  . " synonyms";
 
 	return $term;
 }
@@ -361,8 +428,9 @@ sub parseFlat($) {
 
 =item parseFlatColumns()
 
-Splits and joins the columns of a flat file. The first column is assigned to the first element. Concatenates the 
-ragged end (leftover columns) into the second element or returns undef for a one-column file.
+Splits and joins the columns of a flat file. The first column is assigned to the first element. 
+Concatenates the ragged end (leftover columns) into the second element or returns undef for 
+a one-column file.
 
 =cut
 

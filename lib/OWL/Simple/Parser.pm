@@ -8,9 +8,10 @@ OWL::Simple::Parser
 
 	use OWL::Simple::Parser;
 	
-	# load Experimental Factor Ontology
+	# load Experimental Factor Ontology (http://www.ebi.ac.uk/efo/efo.owl)
 	my $parser = OWL::Simple::Parser->new(  owlfile => 'efo.owl',
-			synonym_tag => 'alternative_term' );
+			synonym_tag => 'efo:alternative_term',
+			definition_tag => 'efo:definition' );
 	
 	# parse file
 	$parser->parse();
@@ -39,10 +40,17 @@ OWL::Simple::Parser
 =head1 DESCRIPTION
 
 A simple OWL parser loading accessions, labels and synonyms and exposes them
-as a collection of OWL::Simple::Class objects.
+as a collection of OWL::Simple::Class objects. 
 
-In the constructor specify the owlfile to be loaded and an optional synonym_tag
-used in the ontology (example FULL_SYN for NCI Thesaurus).
+This module wraps XML::Parser, which is a sequential event-driven XML parser that
+can  potentially handle very large XML documents. The whole XML structure
+is never loaded into memory completely, only the bits of interest.
+
+In the constructor specify the owlfile to be loaded and two optional tags -
+synonym_tag or definition_tag that define custom annotations in the ontology for 
+synonyms and definitions respectively. Note both tags have to be fully 
+specified exactly as in the OWL XML to be loaded, e.g. FULL_SYN for NCI Thesaurus 
+or efo:alternative_term for EFO. 
 
 =head2 METHODS
 
@@ -72,10 +80,10 @@ Tomasz Adamusiak <tomasz@cpan.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2010 European Bioinformatics Institute. All Rights Reserved.
+Copyright (c) 2010-2011 European Bioinformatics Institute. All Rights Reserved.
 
 This module is free software; you can redistribute it and/or modify it 
-under GPLv3.
+under lGPLv3.
 
 This software is provided "as is" without warranty of any kind.
 
@@ -90,7 +98,7 @@ use Data::Dumper;
 use Log::Log4perl qw(:easy);
 Log::Log4perl->easy_init( { level => $INFO, layout => '%-5p - %m%n' } );
 
-our $VERSION = 1.00;
+our $VERSION = 1.01;
 
 has 'owlfile'     => ( is => 'rw', isa => 'Str',     required => 1 );
 has 'class'       => ( is => 'ro', isa => 'HashRef', default  => sub { {} } );
@@ -99,6 +107,9 @@ has 'synonyms_count' => ( is => 'rw', isa => 'Int', default => 0 );
 has 'version' => ( is => 'rw', isa => 'Str' , default => '');
 has 'synonym_tag' =>
   ( is => 'rw', isa => 'Str', default => 'efo:alternative_term' );
+has 'definition_tag' =>
+  ( is => 'rw', isa => 'Str', default => 'efo:definition' );
+  
 
 my $parser;
 my $path = '';
@@ -200,11 +211,12 @@ sub startElement() {
 
 # Handler executed by XML::Parser when node text is processed.
 #
-# For rdfs:label stores the value into $class->label.
-#
-# For synonym_tag (defaulting to efo:alternative_term), runs some post
-# processing removing CDATA statements form NCIt synonyms and [accessedResource],
-# [accessDate] tags from EFO synonyms. The synonyms are stored in $class->synonyms.
+# For rdfs:label stores the value into $class->label otherwise
+# class->annotation() this is then subsequently pushed into
+# respective synonyms or definitions table when the 
+# endElement() event is fired
+# NOTE characterData can be called multiple times, before
+# the end tag
 
 sub characterData {
 	my ( $self, $parseinst, $data ) = @_;
@@ -219,6 +231,7 @@ sub characterData {
 	# Get definition_citation or defintion
 	elsif (
 		$path =~ m!^/rdf:RDF/owl:Class/\w*:?\w*(definition|definition_citation)\w*!
+		|| $path eq '/rdf:RDF/owl:Class/' . $self->definition_tag
 		)
 	{
 		$class->annotation(
@@ -293,7 +306,8 @@ sub endElement() {
 	elsif ( $path =~ m!^/rdf:RDF/owl:Class/\w*:?\w*definition_citation$! ){
 		push @{ $class->xrefs }, $class->annotation if $class->annotation() ne '';
 	}
-	elsif ( $path =~ m!^/rdf:RDF/owl:Class/\w*:?\w*definition$! ){
+	elsif ( $path =~ m!^/rdf:RDF/owl:Class/\w*:?\w*definition$!
+		|| $path eq '/rdf:RDF/owl:Class/' . $self->definition_tag ){
 		push @{ $class->definitions }, $class->annotation if $class->annotation() ne '';
 	}
 	elsif ( $path =~ m!^/rdf:RDF/owl:Class/\w*:?\w*(synonym|alternative_term)\w*!

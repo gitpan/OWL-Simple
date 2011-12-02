@@ -1,6 +1,6 @@
 #!perl
 
-#use lib 'C:\work\workspace\clean_ontology_terms\cpan\OWL-Simple\lib';
+#use lib '..\lib';
 use OWL::Simple::Parser;
 use File::Temp;
 use Test::More tests => 8;
@@ -15,13 +15,15 @@ $fh->printflush(
 	do { local $/; <DATA> }
 );
 
-my $parser = OWL::Simple::Parser->new( owlfile => $fh->filename );
+my $parser = OWL::Simple::Parser->new( owlfile => $fh->filename, 
+								synonym_tag => 'efo:alternative_term',
+								definition_tag => 'efo:RANDOMTAG' );
 
 ok( $parser->parse,                'Parser loads' );
 ok( $parser->version() eq '2.5classified', 'Version found' );
 ok( $parser->class_count() > 0,    'Classes count' );
 ok( $parser->synonyms_count() > 0, 'Synonyms count' );
-ok( $parser->class->{EFO_0000616}->definitions->[0], 'Found definitions' );
+ok( $parser->class->{EFO_0000616}->definitions->[0], 'Found definitions on custom tag' );
 ok( !defined $parser->class->{EFO_0000304}->definitions->[0],
 	'No definitions' );
 ok( $parser->class->{EFO_0000616}->subClassOf->[0], 'Found child' );
@@ -177,13 +179,13 @@ __DATA__
   <owl:Class rdf:about="http://www.ebi.ac.uk/efo/EFO_0000616">
     <efo:bioportal_provenance rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
     >Neoplasia[accessedResource: NCIt:C3262][accessDate: 10-05-2010]</efo:bioportal_provenance>
-    <efo:definition rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
-    >An abnormal tissue growth resulted from uncontrolled cell proliferation. Benign neoplastic cells resemble normal cells without exhibiting significant cytologic atypia, while malignant ones exhibit overt signs such as dysplastic features, atypical mitotic figures, necrosis, nuclear pleomorphism, and anaplasia. Representative examples of benign neoplasms include papillomas, cystadenomas, and lipomas; malignant neoplasms include carcinomas, sarcomas, lymphomas, and leukemias.</efo:definition>
+    <efo:RANDOMTAG rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >An abnormal tissue growth resulted from uncontrolled cell proliferation. Benign neoplastic cells resemble normal cells without exhibiting significant cytologic atypia, while malignant ones exhibit overt signs such as dysplastic features, atypical mitotic figures, necrosis, nuclear pleomorphism, and anaplasia. Representative examples of benign neoplasms include papillomas, cystadenomas, and lipomas; malignant neoplasms include carcinomas, sarcomas, lymphomas, and leukemias.</efo:RANDOMTAG>
     <efo:bioportal_provenance rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
     >NEOPLASMS BENIGN, MALIGNANT AND UNSPECIFIED (INCL CYSTS AND POLYPS)[accessedResource: NCIt:C3262][accessDate: 10-05-2010]</efo:bioportal_provenance>
-    <efo:definition rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    <efo:RANDOMTAG rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
     >An abnormal tissue growth resulted from uncontrolled cell proliferation.
-</efo:definition>
+</efo:RANDOMTAG>
     <rdfs:label rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
     >neoplasm</rdfs:label>
     <efo:bioportal_provenance rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
@@ -204,8 +206,8 @@ __DATA__
     >Neoplasms[accessedResource: NCIt:C3262][accessDate: 10-05-2010]</efo:bioportal_provenance>
     <efo:alternative_term rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
     >Tumor</efo:alternative_term>
-    <efo:definition rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
-    >A benign or malignant tissue growth resulting from uncontrolled cell proliferation.  Benign neoplastic cells resemble normal cells without exhibiting significant cytologic atypia, while malignant cells exhibit overt signs such as dysplastic features, atypical mitotic figures, necrosis, nuclear pleomorphism, and anaplasia.  Representative examples of benign neoplasms include papillomas, cystadenomas, and lipomas; malignant neoplasms include carcinomas, sarcomas, lymphomas, and leukemias.</efo:definition>
+    <efo:RANDOMTAG rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
+    >A benign or malignant tissue growth resulting from uncontrolled cell proliferation.  Benign neoplastic cells resemble normal cells without exhibiting significant cytologic atypia, while malignant cells exhibit overt signs such as dysplastic features, atypical mitotic figures, necrosis, nuclear pleomorphism, and anaplasia.  Representative examples of benign neoplasms include papillomas, cystadenomas, and lipomas; malignant neoplasms include carcinomas, sarcomas, lymphomas, and leukemias.</efo:RANDOMTAG>
     <efo:alternative_term rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
     >Neoplasia</efo:alternative_term>
     <efo:alternative_term rdf:datatype="http://www.w3.org/2001/XMLSchema#string"
